@@ -32,6 +32,10 @@
 #ifndef _INCLUDE_SOURCEMOD_EXTENSION_CONFIG_H_
 #define _INCLUDE_SOURCEMOD_EXTENSION_CONFIG_H_
 
+#ifdef EXT_AUTO_VER
+#include "extension_version_auto.h"
+#endif
+
 /**
  * @file smsdk_config.h
  * @brief Contains macros for configuring basic extension information.
@@ -40,9 +44,13 @@
 /* Basic information exposed publicly */
 #define SMEXT_CONF_NAME			"voicesend"
 #define SMEXT_CONF_DESCRIPTION	"voicesend"
-#define SMEXT_CONF_VERSION		"0.0.0.0"
-#define SMEXT_CONF_AUTHOR		"Arthurdead"
-#define SMEXT_CONF_URL			""
+#ifdef EXT_AUTO_VER
+#define SMEXT_CONF_VERSION		EXT_VERSION_STRING
+#else
+#define SMEXT_CONF_VERSION		"Manual Build"
+#endif
+#define SMEXT_CONF_AUTHOR		"Arthurdead + Kenzzer (Auto versioning, cleanups)"
+#define SMEXT_CONF_URL			"https://github.com/Kenzzer/voicesend"
 #define SMEXT_CONF_LOGTAG		"VOICESEND"
 #define SMEXT_CONF_LICENSE		"GPL"
 #define SMEXT_CONF_DATESTRING	__DATE__

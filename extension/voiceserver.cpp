@@ -1,9 +1,12 @@
+#include <vector>
+#include <algorithm>
+#include <iclient.h>
+#include <iserver.h>
+
 #include "smsdk_ext.h"
 #include "extension.h"
 #include "voiceserver.h"
 #include "voicecodec_celt.h"
-#include <iclient.h>
-#include <iserver.h>
 #include "netmessages.h"
 
 //#define DEBUG_CONNECTION
