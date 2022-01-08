@@ -95,6 +95,7 @@ class ExtensionConfig(object):
     self.sm_root = None
     self.all_targets = []
     self.target_archs = set()
+    self.libcelt = {}
 
     if builder.options.targets:
       target_archs = builder.options.targets.split(',')
@@ -552,6 +553,25 @@ class ExtensionConfig(object):
       binary.compiler.sourcedeps += Extension.generated_headers
     return binary
 
+  def add_libcelt(self):
+    for cxx in self.all_targets:
+      def get_configure_fn(cxx):
+        return lambda builder, name: self.StaticLibrary(builder, cxx, name)
+      extra_vars = {'Configure': get_configure_fn(cxx)}
+      libcelt = builder.Build('lib/celt/AMBuilder', extra_vars)
+      self.libcelt[cxx.target.arch] = libcelt.binary
+  
+  def link_libcelt(self, builder, cxx):
+    cxx.linkflags += [os.path.join(builder.buildPath, self.libcelt[cxx.target.arch].path)]
+
+  def StaticLibrary(self, context, compiler, name):
+    compiler = compiler.clone()
+    SetArchFlags(compiler)
+    return self.StaticLibraryBuilder(compiler, name)
+  
+  def StaticLibraryBuilder(self, compiler, name):
+    return compiler.StaticLibrary(name)
+
   def HL2Library(self, context, compiler, name, sdk):
     binary = self.Library(context, compiler, name)
     self.ConfigureForExtension(context, binary.compiler)
@@ -575,6 +595,7 @@ Extension = ExtensionConfig()
 Extension.detectProductVersion()
 Extension.detectSDKs()
 Extension.configure()
+Extension.add_libcelt()
 
 if Extension.use_auto_versioning():
   Extension.generated_headers = builder.Build(

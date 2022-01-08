@@ -8,25 +8,6 @@ project.sources = [
   'voiceserver.cpp',
   'ringbuffer.cpp',
   'voicecodec_celt.cpp',
-  os.path.join(Extension.sm_root,'public/CDetour/detours.cpp'),
-  os.path.join(Extension.sm_root,'public/asm/asm.c'),
-  os.path.join(Extension.sm_root,'public/libudis86/decode.c'),
-  os.path.join(Extension.sm_root,'public/libudis86/itab.c'),
-  os.path.join(Extension.sm_root,'public/libudis86/syn-att.c'),
-  os.path.join(Extension.sm_root,'public/libudis86/syn-intel.c'),
-  os.path.join(Extension.sm_root,'public/libudis86/syn.c'),
-  os.path.join(Extension.sm_root,'public/libudis86/udis86.c'),
-]
-
-projectName = 'voicesend'
-
-# smsdk_ext.cpp will be automatically added later
-sourceFiles = [
-  'extension.cpp',
-  'netmessages.cpp',
-  'voiceserver.cpp',
-  'ringbuffer.cpp',
-  'voicecodec_celt.cpp',
   os.path.join(Extension.sm_root, 'public', 'CDetour', 'detours.cpp'),
   os.path.join(Extension.sm_root, 'public', 'asm', 'asm.c'),
   os.path.join(Extension.sm_root, 'public', 'libudis86', 'decode.c'),
@@ -35,7 +16,7 @@ sourceFiles = [
   os.path.join(Extension.sm_root, 'public', 'libudis86', 'syn-intel.c'),
   os.path.join(Extension.sm_root, 'public', 'libudis86', 'syn.c'),
   os.path.join(Extension.sm_root, 'public', 'libudis86', 'udis86.c'),
-  os.path.join(Extension.sm_root, 'public', 'smsdk_ext.cpp')
+  os.path.join(Extension.sm_root, 'public', 'smsdk_ext.cpp'),
 ]
 
 for sdk_name in Extension.sdks:
@@ -50,8 +31,6 @@ for sdk_name in Extension.sdks:
       os.path.join(os.path.join(builder.currentSourcePath, 'celt'))
     ]
 
-    binary.compiler.linkflags += [
-      os.path.join(builder.currentSourcePath, 'celt', 'libcelt0.a')
-    ]
+    Extension.link_libcelt(builder, cxx)
 
 Extension.extensions = builder.Add(project)
