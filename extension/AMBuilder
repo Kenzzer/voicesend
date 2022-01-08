@@ -25,12 +25,14 @@ for sdk_name in Extension.sdks:
   for cxx in builder.targets:
     if not cxx.target.arch in sdk.platformSpec[cxx.target.platform]:
       continue
-  
+    
     binary = Extension.HL2ExtConfig(project, builder, cxx, 'voicesend.ext.' + sdk.ext, sdk)
     binary.compiler.cxxincludes += [
       os.path.join(os.path.join(builder.currentSourcePath, 'celt'))
     ]
-
-    Extension.link_libcelt(builder, cxx)
+    Extension.link_libcelt(builder, binary.compiler)
+    binary.compiler.includes += [ os.path.join(os.path.join(builder.currentSourcePath, '..', 'lib', 'celt', 'celt', 'libcelt')) ]
+    if binary.compiler.behavior == 'gcc' or binary.compiler.behavior == 'clang':
+      binary.compiler.cxxflags += ['-Wno-invalid-offsetof']
 
 Extension.extensions = builder.Add(project)

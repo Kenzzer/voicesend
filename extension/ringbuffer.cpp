@@ -157,12 +157,12 @@ size_t CRingBuffer::TotalFree()
 
 size_t CRingBuffer::CurrentLength()
 {
-	return ((ssize_t)m_WriteIndex - (ssize_t)m_ReadIndex) % m_BufferSize;
+	return ((size_t)m_WriteIndex - (size_t)m_ReadIndex) % m_BufferSize;
 }
 
 size_t CRingBuffer::CurrentFree()
 {
-	size_t BufferFree = ((ssize_t)m_ReadIndex - (ssize_t)m_WriteIndex) % m_BufferSize;
+	size_t BufferFree = ((size_t)m_ReadIndex - (size_t)m_WriteIndex) % m_BufferSize;
 	return (BufferFree ? BufferFree : m_BufferSize) - 1;
 }
 

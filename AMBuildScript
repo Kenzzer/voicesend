@@ -273,10 +273,9 @@ class ExtensionConfig(object):
       '-fvisibility-inlines-hidden',
       '-fpermissive'
     ]
-    cxx.linkflags += ['-m32']
 
-    have_gcc = cxx.vendor == 'gcc'
-    have_clang = cxx.vendor == 'clang'
+    have_gcc = str(cxx.vendor).startswith('gcc')
+    have_clang = str(cxx.vendor).startswith('clang')
     if cxx.version >= 'clang-3.9' or cxx.version == 'clang-3.4' or cxx.version > 'apple-clang-6.0':
       cxx.cxxflags += ['-Wno-expansion-to-defined']
     if cxx.version == 'clang-3.9' or cxx.version == 'apple-clang-8.0':
@@ -360,12 +359,11 @@ class ExtensionConfig(object):
 
   def configure_linux(self, cxx):
     cxx.defines += ['_LINUX', 'POSIX']
-    cxx.linkflags += ['-Wl,--exclude-libs,ALL', '-lm']
-    if cxx.vendor == 'gcc':
+    cxx.linkflags += ['-lm']
+    if str(cxx.vendor).startswith('gcc'):
       cxx.linkflags += ['-static-libgcc']
-    elif cxx.vendor == 'clang':
+    elif str(cxx.vendor).startswith('clang'):
       cxx.linkflags += ['-lgcc_eh']
-    cxx.linkflags += ['-static-libstdc++']
 
   def configure_mac(self, cxx):
     cxx.defines += ['OSX', '_OSX', 'POSIX']

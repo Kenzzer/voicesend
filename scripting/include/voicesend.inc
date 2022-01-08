@@ -43,7 +43,7 @@ native VoiceCodec CreateCeltCodecEx(int samplerate, int framesize, int packetsiz
 forward void OnVoiceServerData(VoiceServer server, const char[] uncompressed, int SamplesPerFrame, int PacketSize);
 
 forward void OnVoiceInit(char[] codec, int length, int &samplerate);
-forward void OnVoiceData(int &client, char[] data, int &length);
+forward Action OnVoiceData(int speaker, int client, char[] data, int length, bool &proximity);
 
 native void SendVoiceInit(int client, const char[] codec, int samplerate);
 

@@ -39,7 +39,6 @@
 #include <iclient.h>
 #include <iserver.h>
 #include "ivoicecodec.h"
-#include <tier1/interface.h>
 #include "netmessages.h"
 #include "voicecodec_celt.h"
 
@@ -61,12 +60,6 @@ HandleType_t voiceserver_handle;
 IForward *OnVoiceInit;
 IForward *OnVoiceData;
 IForward *OnVoiceServerData;
-struct codecdl
-{
-	CSysModule *dl;
-	CreateInterfaceFn func;
-};
-std::unordered_map<std::string, codecdl> dlmap;
 
 inline int Voice_GetDefaultSampleRate( const char *pCodec ) // Inline for DEDICATED builds
 {
@@ -145,7 +138,7 @@ static cell_t SendVoiceInit(IPluginContext *pContext, const cell_t *params)
 CDetour *SV_BroadcastVoiceData_detour;
 DETOUR_DECL_STATIC4(SV_BroadcastVoiceData, void, IClient *, pClient, int, nBytes, char *, data, int64, xuid)
 {
-	cell_t index{pClient->GetPlayerSlot()+1};
+	/*cell_t index{pClient->GetPlayerSlot()+1};
 	OnVoiceData->PushCellByRef(&index);
 	OnVoiceData->PushStringEx(data, nBytes, SM_PARAM_STRING_COPY|SM_PARAM_STRING_BINARY, SM_PARAM_COPYBACK);
 	OnVoiceData->PushCellByRef(reinterpret_cast<cell_t *>(&nBytes));
@@ -153,7 +146,69 @@ DETOUR_DECL_STATIC4(SV_BroadcastVoiceData, void, IClient *, pClient, int, nBytes
 
 	pClient = sv->GetClient(index-1);
 
-	DETOUR_STATIC_CALL(SV_BroadcastVoiceData)(pClient, nBytes, data, xuid);
+	DETOUR_STATIC_CALL(SV_BroadcastVoiceData)(pClient, nBytes, data, xuid);*/
+
+	// Build voice message once
+	SVC_VoiceData voiceData;
+	voiceData.m_nFromClient = pClient->GetPlayerSlot();
+	voiceData.m_nLength = nBytes * 8;	// length in bits
+	voiceData.m_DataOut = data;
+	voiceData.m_xuid = xuid;
+
+	cell_t sender = pClient->GetPlayerSlot() + 1;
+
+	for (int i = 0; i < sv->GetClientCount(); i++)
+	{
+		IClient *pDestClient = sv->GetClient(i);
+
+		bool bSelf = (pDestClient == pClient);
+
+		// Only send voice to active clients
+		if (!pDestClient->IsActive())
+		{
+			continue;
+		}
+
+		// Does the game code want cl sending to this client?
+
+		bool bHearsPlayer = pDestClient->IsHearingClient( voiceData.m_nFromClient );
+		voiceData.m_bProximity = pDestClient->IsProximityHearingClient( voiceData.m_nFromClient );
+
+		if (IsX360() && bSelf == true)
+		{
+			continue;
+		}
+
+		if (!bHearsPlayer && !bSelf)
+		{
+			continue;
+		}
+
+		voiceData.m_nLength = nBytes * 8;
+
+		// Is loopback enabled?
+		if (!bHearsPlayer)
+		{
+			// Still send something, just zero length (this is so the client 
+			// can display something that shows knows the server knows it's talking).
+			voiceData.m_nLength = 0;
+		}
+		OnVoiceData->PushCell(sender);
+		OnVoiceData->PushCell(i + 1);
+		OnVoiceData->PushStringEx(data, nBytes, SM_PARAM_STRING_COPY|SM_PARAM_STRING_BINARY, SM_PARAM_COPYBACK);
+		OnVoiceData->PushCell(nBytes);
+		cell_t bProximity = voiceData.m_bProximity;
+		OnVoiceData->PushCellByRef(&bProximity);
+		cell_t action = Pl_Continue;
+		OnVoiceData->Execute(&action);
+
+		if (action != Pl_Continue)
+		{
+			voiceData.m_bProximity = bProximity;
+		}
+
+		pDestClient->SendNetMsg( voiceData );
+	}
 }
 
 static cell_t SendVoiceData(IPluginContext *pContext, const cell_t *params)
@@ -187,62 +242,13 @@ static cell_t handle_createvoicecodec(IPluginContext *pContext, const cell_t *pa
 	pContext->LocalToString(params[1], &name_ptr);
 	std::string_view name{name_ptr};
 
-	if(name == "voicesend_celt"sv) {
+	if (name == "voicesend_celt"sv)
+	{
 		VoiceCodec_Celt *codec = new VoiceCodec_Celt();
 		return handlesys->CreateHandle(voicecodec_handle, codec, pContext->GetIdentity(), myself->GetIdentity(), NULL);
 	}
 
-	CreateInterfaceFn func{nullptr};
-	auto it{dlmap.find(std::string{name})};
-	if(it == dlmap.end()) {
-		std::string dlpath;
-		dlpath += name;
-		dlpath += ".so"sv;
-
-		//CSysModule *dl{Sys_LoadModule(dlpath.c_str(), SYS_NOFLAGS)};
-		CSysModule *dl{reinterpret_cast<CSysModule *>(dlopen(dlpath.c_str(), RTLD_NOW))};
-		if(dl) {
-			func = Sys_GetFactory(dl);
-			if(func) {
-				dlmap.emplace(std::pair<std::string,codecdl>{name,codecdl{dl,func}});
-			} else {
-				if(ex) {
-					const int len{static_cast<cell_t>(params[3])};
-					pContext->StringToLocal(params[2], len, "missing factory");
-				}
-				dlclose(dl);
-			}
-		} else {
-			if(ex) {
-				const int len{static_cast<cell_t>(params[3])};
-				const char *err{dlerror()};
-				if(!err) {
-					err = "";
-				}
-				pContext->StringToLocal(params[2], len, err);
-			}
-		}
-	} else {
-		func = it->second.func;
-	}
-
-	if(func) {
-		int status;
-		using namespace std::literals::string_literals;
-		std::string ifacename;
-		ifacename += name;
-		IVoiceCodec *codec{reinterpret_cast<IVoiceCodec *>(func(ifacename.data(), &status))};
-		if(codec) {
-			return handlesys->CreateHandle(voicecodec_handle, codec, pContext->GetIdentity(), myself->GetIdentity(), NULL);
-		} else {
-			if(ex) {
-				const int len{static_cast<cell_t>(params[3])};
-				pContext->StringToLocal(params[2], len, "factory returned null");
-			}
-		}
-	}
-
-	return 0;
+	return pContext->StringToLocal(params[2], params[3], "missing factory");
 }
 
 static cell_t CreateVoiceCodec(IPluginContext *pContext, const cell_t *params)
@@ -450,7 +456,7 @@ bool Sample::SDK_OnLoad(char *error, size_t maxlen, bool late)
 	voiceserver_handle = handlesys->CreateType("VoiceServer", this, 0, nullptr, nullptr, myself->GetIdentity(), nullptr);
 
 	OnVoiceInit = forwards->CreateForward("OnVoiceInit", ET_Event, 3, nullptr, Param_String, Param_Cell, Param_CellByRef);
-	OnVoiceData = forwards->CreateForward("OnVoiceData", ET_Event, 3, nullptr, Param_CellByRef, Param_String, Param_CellByRef);
+	OnVoiceData = forwards->CreateForward("OnVoiceData", ET_Event, 5, nullptr, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_CellByRef);
 	OnVoiceServerData = forwards->CreateForward("OnVoiceServerData", ET_Event, 4, nullptr, Param_Cell, Param_String, Param_Cell, Param_Cell);
 
 	VoiceCodec_Celt::InitGlobalSettings();
@@ -465,9 +471,6 @@ bool Sample::SDK_OnLoad(char *error, size_t maxlen, bool late)
 void Sample::SDK_OnUnload()
 {
 	smutils->RemoveGameFrameHook(::OnGameFrame);
-	for(auto &[name,dl] : dlmap) {
-		Sys_UnloadModule(dl.dl);
-	}
 	forwards->ReleaseForward(OnVoiceInit);
 	forwards->ReleaseForward(OnVoiceData);
 	forwards->ReleaseForward(OnVoiceServerData);

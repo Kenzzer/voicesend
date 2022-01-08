@@ -1,5 +1,5 @@
 #include "voicecodec_celt.h"
-#include <tier1/convar.h>
+#include <convar.h>
 #include "smsdk_ext.h"
 
 static VoiceCodec_Celt::CEncoderSettings globalEncoderSettings;
